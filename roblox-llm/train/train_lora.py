@@ -182,5 +182,9 @@ def train(run_name: str = "v1", token_budget: int = TOKEN_BUDGET, seed: int = 12
 
 
 @app.local_entrypoint()
-def main(run_name: str = "v1", token_budget: int = TOKEN_BUDGET):
-    print(json.dumps(train.remote(run_name, token_budget), indent=1))
+def main(run_name: str = "v1", token_budget: int = TOKEN_BUDGET, wait: bool = False):
+    # Spawn by default: a blocking .remote() was cancelled when the launching client went away (run v1, 22:44Z).
+    if wait:
+        print(json.dumps(train.remote(run_name, token_budget), indent=1))
+    else:
+        print("spawned train:", train.spawn(run_name, token_budget).object_id)
