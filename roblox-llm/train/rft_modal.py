@@ -38,8 +38,6 @@ image = (
 )
 
 MAX_TRAIN_PROMPT_CHARS = 8000   # training samples only; eval keeps every task
-MAX_SEQS = 32                   # sequences per generate() call
-MAX_PROMPT_TOKENS = 48000       # prompt tokens per generate() call (long files get small batches)
 
 
 def _load(model_kind: str):
@@ -65,7 +63,8 @@ def _chat(tok, prompt: str) -> str:
 
 @app.function(image=image, gpu="H100", memory=32768, volumes={DATA: data_vol, MODELS: model_vol}, timeout=3 * 3600)
 def gen(model_kind: str, name: str, sample_train: int = 0, k: int = 1, max_new_tokens: int = 2048,
-        temperature: float = 0.8, seed: int = 13) -> dict:
+        temperature: float = 0.8, seed: int = 13, limit: int = 0, max_seqs: int = 32,
+        max_prompt_tokens: int = 48000) -> dict:
     import io
     import os
     import time
@@ -86,7 +85,9 @@ def gen(model_kind: str, name: str, sample_train: int = 0, k: int = 1, max_new_t
                   "reference": r["messages"][1]["content"]} for i, r in enumerate(rows[:sample_train])]
         samples, temp = k, temperature
     else:
-        tasks = [json.loads(l) for l in open(f"{DATA}/dataset_v2/final/eval_tasks.jsonl")]   # all of them
+        tasks = [json.loads(l) for l in open(f"{DATA}/dataset_v2/final/eval_tasks.jsonl")]
+        if limit:
+            tasks = tasks[:limit]      # file order; the same subset is scored for every model
         samples, temp = 1, 0.0
 
     tok, model = _load(model_kind)
@@ -99,7 +100,7 @@ def gen(model_kind: str, name: str, sample_train: int = 0, k: int = 1, max_new_t
     order = sorted(range(len(tasks)), key=lambda i: lens[i])
     batches, cur = [], []
     for i in order:
-        if cur and ((len(cur) + 1) * samples > MAX_SEQS or (len(cur) + 1) * samples * lens[i] > MAX_PROMPT_TOKENS):
+        if cur and ((len(cur) + 1) * samples > max_seqs or (len(cur) + 1) * samples * lens[i] > max_prompt_tokens):
             batches.append(cur)
             cur = []
         cur.append(i)
@@ -211,9 +212,12 @@ def train(run_name: str = "rft1", data_name: str = "rft_train", lr: float = 5e-5
 
 @app.local_entrypoint()
 def main(stage: str = "gen", model: str = "base", name: str = "eval_base", sample_train: int = 0,
-         k: int = 1, max_new: int = 2048, run_name: str = "rft1", data_name: str = "rft_train"):
+         k: int = 1, max_new: int = 2048, limit: int = 0, max_seqs: int = 32, max_prompt_tokens: int = 48000,
+         run_name: str = "rft1", data_name: str = "rft_train"):
     if stage == "gen":
-        print("spawned gen:", gen.spawn(model, name, sample_train, k, max_new).object_id)
+        print("spawned gen:", gen.spawn(model, name, sample_train=sample_train, k=k, max_new_tokens=max_new,
+                                        limit=limit, max_seqs=max_seqs,
+                                        max_prompt_tokens=max_prompt_tokens).object_id)
     elif stage == "train":
         print("spawned train:", train.spawn(run_name, data_name).object_id)
     else:
