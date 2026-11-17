@@ -115,7 +115,7 @@ def tokenize(src: str) -> tuple[list[Tok], list[str]]:
         elif two in ("==", "~=", "<=", ">=", "..", "::", "->", "+=", "-=", "*=", "/=", "%=", "^=", "//"):
             toks.append(Tok("op", two, line))
             i += 2
-        elif c in "+-*/%^#<>=(){}[];:,.&|?":
+        elif c in "+-*/%^#<>=(){}[];:,.&|?@":
             toks.append(Tok("op", c, line))
             i += 1
         else:
@@ -144,10 +144,16 @@ def check_structure(toks: list[Tok]) -> list[str]:
                 errs.append(f"line {t.line}: unmatched {t.text!r}")
                 return errs
             brackets.pop()
+        if t.kind == "name" and t.text == "class" and prev is not None and prev.text == "declare":
+            stack.append(("class", t.line))
         if t.kind == "kw":
             w = t.text
             if w == "function":
-                stack.append(("function", t.line))
+                # In type-definition files, 'declare function' and methods inside 'declare class' are
+                # signatures with no body and no 'end'.
+                in_decl = (prev is not None and prev.text == "declare") or (stack and stack[-1][0] == "class")
+                if not in_decl:
+                    stack.append(("function", t.line))
             elif w == "if":
                 is_expr = prev is not None and (prev.text in _EXPR_PREV or prev.kind == "kw" and prev.text in ("return", "in"))
                 if not is_expr:
@@ -297,11 +303,15 @@ _CLIENT_NAME = re.compile(r"\.client\.(luau|lua)$|LocalScript", re.I)
 _SERVER_NAME = re.compile(r"\.server\.(luau|lua)$|Script\.luau$", re.I)
 
 
+_COMMENT = re.compile(r"--\[(=*)\[.*?\]\1\]|--[^\n]*", re.S)
+
+
 def check_boundary(path: str, src: str, api: ApiIndex) -> list[str]:
     errs = []
     if _CLIENT_NAME.search(path):
+        code = _COMMENT.sub("", src)
         for svc in api.server_only:
-            if re.search(rf"\b{svc}\b", src):
+            if re.search(rf"\b{svc}\b", code):
                 errs.append(f"client script references server-only service {svc}")
     return errs
 
