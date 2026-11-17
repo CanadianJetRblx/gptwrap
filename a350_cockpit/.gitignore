@@ -1,0 +1,5 @@
+textures/
+renders_preview/
+__pycache__/
+refs/
+*.blend1
