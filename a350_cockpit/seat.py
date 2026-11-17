@@ -324,10 +324,11 @@ class MB:
             for k in range(4):
                 f = self.bm.faces.new([a[k], a[(k + 1) % 4], b[(k + 1) % 4], b[k]])
                 f.material_index = idx
-                f.smooth = False
+                self.sharp.add(f)               # flat webbing, not a rounded tube
         for ring in (rings[0], rings[-1][::-1]):
             f = self.bm.faces.new(ring)
             f.material_index = idx
+            self.sharp.add(f)
         return P, N
 
     def finish(self, collection, parent=None, location=(0, 0, 0), rotation=(0, 0, 0), name=None):
