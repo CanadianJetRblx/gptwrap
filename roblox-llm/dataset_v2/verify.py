@@ -34,6 +34,12 @@ class Tok:
     line: int
 
 
+_LONG_COMMENT = re.compile(r"--\[(=*)\[")
+_LONG_STRING = re.compile(r"\[(=*)\[")
+_NUMBER = re.compile(r"(0[xX][0-9a-fA-F_]+|0[bB][01_]+|(\d[\d_]*\.?[\d_]*|\.\d[\d_]*)([eE][+-]?\d+)?)")
+_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
 def tokenize(src: str) -> tuple[list[Tok], list[str]]:
     toks: list[Tok] = []
     errors: list[str] = []
@@ -48,7 +54,7 @@ def tokenize(src: str) -> tuple[list[Tok], list[str]]:
             i += 1
             continue
         if src.startswith("--", i):  # comment
-            m = re.match(r"--\[(=*)\[", src[i:])
+            m = _LONG_COMMENT.match(src, i)
             if m:
                 close = "]" + m.group(1) + "]"
                 j = src.find(close, i + len(m.group(0)))
@@ -61,7 +67,7 @@ def tokenize(src: str) -> tuple[list[Tok], list[str]]:
                 j = src.find("\n", i)
                 i = n if j < 0 else j
             continue
-        m = re.match(r"\[(=*)\[", src[i:])
+        m = _LONG_STRING.match(src, i)
         if m:  # long string
             close = "]" + m.group(1) + "]"
             j = src.find(close, i + len(m.group(0)))
@@ -96,12 +102,12 @@ def tokenize(src: str) -> tuple[list[Tok], list[str]]:
             toks.append(Tok("str", src[i:j + 1], line))
             i = j + 1
             continue
-        m = re.match(r"(0[xX][0-9a-fA-F_]+|0[bB][01_]+|(\d[\d_]*\.?[\d_]*|\.\d[\d_]*)([eE][+-]?\d+)?)", src[i:])
+        m = _NUMBER.match(src, i)
         if m and m.group(0):
             toks.append(Tok("num", m.group(0), line))
             i += len(m.group(0))
             continue
-        m = re.match(r"[A-Za-z_][A-Za-z0-9_]*", src[i:])
+        m = _NAME.match(src, i)
         if m:
             w = m.group(0)
             toks.append(Tok("kw" if w in KEYWORDS else "name", w, line))

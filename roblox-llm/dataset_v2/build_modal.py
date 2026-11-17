@@ -108,9 +108,17 @@ def phase2(seed: int = 7, debug_share: float = 0.25) -> dict:
             counts[name] += 1
         return emit
 
+    import traceback
+    man = None
     try:
         man = build.build_iter(stream_records(), api, emitter("cpt_train"), emitter("sft_train"),
                                emitter("holdout_eval"), seed=seed, debug_share=debug_share)
+    except BaseException:  # keep the real traceback: a RemoteError with an empty message hides it
+        tb = traceback.format_exc()
+        with open(f"{out}/error.txt", "w") as fh:
+            fh.write(tb)
+        vol.commit()
+        return {"error": tb[-4000:], "counts_so_far": counts}
     finally:
         for w in writers.values():
             w.close()
