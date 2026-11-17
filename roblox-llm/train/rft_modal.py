@@ -26,7 +26,7 @@ model_vol = modal.Volume.from_name("rbx-models", create_if_missing=True)
 MODEL_ID = "Qwen/Qwen3.5-4B"
 MODELS = "/models"
 DATA = "/data"
-ADAPTERS = {"v1": "runs/v1", "rft": "runs/rft1"}
+ADAPTERS = {"v1": "runs/v1", "rft": "runs/rft1", "chat": "runs/chat1"}
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -210,15 +210,118 @@ def train(run_name: str = "rft1", data_name: str = "rft_train", lr: float = 5e-5
             "minutes": round((time.time() - t0) / 60, 1)}
 
 
+@app.function(image=image, gpu="H100", memory=32768, volumes={DATA: data_vol, MODELS: model_vol}, timeout=2 * 3600)
+def chat_sft(run_name: str = "chat1", n_debug: int = 1500, n_header: int = 1500, max_minutes: float = 20.0,
+             lr: float = 2e-4, max_len: int = 2048, seed: int = 21) -> dict:
+    """Chat-format SFT from the BASE model. The v1 adapter learned to continue text and never ends its turn,
+    so this run trains on the v2 instruction pairs in exactly the evaluation format, with the end-of-turn
+    token as the last target. Wall-clock capped (max_minutes) to bound the cost; the adapter is saved either way."""
+    import io
+    import time
+    import torch
+    import zstandard as zstd
+    from peft import LoraConfig, get_peft_model
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    t0 = time.time()
+    rng = random.Random(seed)
+    debug_rows, header_rows = [], []
+    with open(f"{DATA}/dataset_v2/final/sft_train.jsonl.zst", "rb") as fh:
+        reader = io.TextIOWrapper(zstd.ZstdDecompressor().stream_reader(fh), encoding="utf-8")
+        for line in reader:
+            r = json.loads(line)
+            if r.get("task_type") == "debug_detected_fault":
+                if rng.random() < 0.1:
+                    debug_rows.append(r)
+            elif rng.random() < 0.03:
+                header_rows.append(r)
+    rng.shuffle(debug_rows)
+    rng.shuffle(header_rows)
+
+    tok = AutoTokenizer.from_pretrained(MODEL_ID, cache_dir=f"{MODELS}/hf-cache")
+    eos = tok.convert_tokens_to_ids("<|im_end|>")
+
+    def encode(r):
+        prompt = tok.apply_chat_template([r["messages"][0]], tokenize=False, add_generation_prompt=True,
+                                         enable_thinking=False)
+        p = tok(prompt, add_special_tokens=False)["input_ids"]
+        a = tok(r["messages"][1]["content"], add_special_tokens=False)["input_ids"] + [eos]
+        if len(p) + len(a) > max_len:
+            return None
+        return p + a, [-100] * len(p) + a
+
+    def take(rows, n):
+        out = []
+        for r in rows:
+            e = encode(r)
+            if e:
+                out.append(e)
+            if len(out) >= n:
+                break
+        return out
+
+    examples = take(debug_rows, n_debug) + take(header_rows, n_header)
+    random.Random(seed + 1).shuffle(examples)
+    print(f"examples: {len(examples)} (debug target {n_debug}, header target {n_header})", flush=True)
+
+    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, dtype=torch.bfloat16,
+                                                 cache_dir=f"{MODELS}/hf-cache", device_map="cuda")
+    model.gradient_checkpointing_enable()
+    model.enable_input_require_grads()
+    cfg = LoraConfig(r=32, lora_alpha=64, lora_dropout=0.05, task_type="CAUSAL_LM",
+                     target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"])
+    model = get_peft_model(model, cfg)
+    model.train()
+    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=lr)
+
+    batch, accum, warmup = 2, 4, 10
+    t_train = time.time()
+    steps, micro, log, seen = 0, 0, [], 0
+    stopped_early = False
+    for s in range(0, len(examples), batch):
+        if time.time() - t_train > max_minutes * 60:
+            stopped_early = True
+            break
+        chunk = examples[s:s + batch]
+        L = max(len(x[0]) for x in chunk)
+        ids = torch.tensor([x[0] + [tok.pad_token_id] * (L - len(x[0])) for x in chunk], device="cuda")
+        lab = torch.tensor([x[1] + [-100] * (L - len(x[1])) for x in chunk], device="cuda")
+        att = torch.tensor([[1] * len(x[0]) + [0] * (L - len(x[0])) for x in chunk], device="cuda")
+        loss = model(input_ids=ids, attention_mask=att, labels=lab).loss / accum
+        loss.backward()
+        seen += len(chunk)
+        micro += 1
+        if micro % accum == 0:
+            for g in opt.param_groups:
+                g["lr"] = lr * min(1.0, (steps + 1) / warmup)
+            opt.step()
+            opt.zero_grad(set_to_none=True)
+            steps += 1
+            if steps % 20 == 0:
+                log.append({"step": steps, "examples": seen, "loss": round(loss.item() * accum, 4),
+                            "minutes": round((time.time() - t_train) / 60, 1)})
+                print(log[-1], flush=True)
+    if micro % accum:
+        opt.step()
+        steps += 1
+    model.save_pretrained(f"{MODELS}/runs/{run_name}")
+    model_vol.commit()
+    return {"run": run_name, "examples_available": len(examples), "examples_seen": seen,
+            "optimizer_steps": steps, "stopped_at_time_cap": stopped_early,
+            "log": log, "minutes": round((time.time() - t0) / 60, 1)}
+
+
 @app.local_entrypoint()
 def main(stage: str = "gen", model: str = "base", name: str = "eval_base", sample_train: int = 0,
          k: int = 1, max_new: int = 2048, limit: int = 0, max_seqs: int = 32, max_prompt_tokens: int = 48000,
-         run_name: str = "rft1", data_name: str = "rft_train"):
+         run_name: str = "rft1", data_name: str = "rft_train", max_minutes: float = 20.0):
     if stage == "gen":
         print("spawned gen:", gen.spawn(model, name, sample_train=sample_train, k=k, max_new_tokens=max_new,
                                         limit=limit, max_seqs=max_seqs,
                                         max_prompt_tokens=max_prompt_tokens).object_id)
     elif stage == "train":
         print("spawned train:", train.spawn(run_name, data_name).object_id)
+    elif stage == "chat_sft":
+        print("spawned chat_sft:", chat_sft.spawn(run_name=run_name, max_minutes=max_minutes).object_id)
     else:
         raise SystemExit(f"unknown stage {stage!r}")
