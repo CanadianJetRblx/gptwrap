@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Promo Manager</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Promo Manager</h1>
+    <nav id="tabs" hidden>
+      <button data-tab="communities">Communities</button>
+      <button data-tab="content">Content</button>
+      <button data-tab="schedules">Schedules</button>
+      <button data-tab="history">History</button>
+      <button data-tab="settings" data-admin>Network</button>
+    </nav>
+    <div id="session" hidden><span id="role"></span> <button id="logout" class="ghost">Sign out</button></div>
+  </header>
+
+  <main>
+    <div id="notice" role="status" hidden></div>
+
+    <form id="login" class="card narrow" hidden>
+      <h2>Sign in</h2>
+      <label>Access token <input type="password" name="token" autocomplete="current-password" required></label>
+      <button>Sign in</button>
+    </form>
+
+    <section id="view" hidden></section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

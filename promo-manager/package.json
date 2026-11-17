@@ -1,0 +1,17 @@
+{
+  "name": "promo-manager",
+  "version": "1.0.0",
+  "description": "Admin panel for scheduling partner promotions to authorized Discord channels",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "undici": "^7.16.0"
+  }
+}
