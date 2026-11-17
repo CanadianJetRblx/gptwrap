@@ -789,45 +789,60 @@ def overhead_centre():
                                  bot_col=BLUE if "JETT" in lab else LEGEND, label=lab, label_mm=1.1, w=0.022,
                                  cover=GUARD_RED if "JETT" in lab else None, mm=1.4))
 
-    # R6: hyd
+    # R6: hyd -- four guarded engine-driven pumps, GREEN and YELLOW on each engine
     a, b = _sec(P, "HYD", X0, 0.722, X1, 0.812)
-    P.flow([(0.030, 0.780), (0.150, 0.780)])
-    P.flow([(0.190, 0.780), (0.310, 0.780)])
-    P.row(0.752, a, b, ["ENG 1\nPUMP A", "ENG 1\nPUMP B", "G ELEC\nPUMP", None, "Y ELEC\nPUMP", "ENG 2\nPUMP A",
-                        "ENG 2\nPUMP B"],
-          lambda x, y, lab: P.pb(x, y, "FAULT", "OFF", 0.016, label=lab, label_mm=1.1, w=0.024, mm=1.4,
-                                 cover=GUARD_RED if "ENG" in lab else None))
-    P.label(0.090, 0.802, "GREEN", 1.4, col=(120, 235, 130))
-    P.label(0.250, 0.802, "YELLOW", 1.4, col=(240, 222, 90))
+    for x, lab, col in ((0.060, "GREEN", (120, 235, 130)), (0.124, "YELLOW", (240, 222, 90)),
+                        (0.216, "GREEN", (120, 235, 130)), (0.280, "YELLOW", (240, 222, 90))):
+        P.d.rectangle([P.p(x - 0.020, 0.800), P.p(x + 0.020, 0.790)], outline=col, width=3)
+        P.label(x, 0.795, lab, 1.2, col=col)
+        P.pb(x, 0.754, "FAULT", "OFF", 0.015, label="PUMP", label_mm=1.1, w=0.024, mm=1.3, cover=GUARD_RED)
+    P.label(0.092, 0.806, "ENG 1", 1.2)
+    P.label(0.248, 0.806, "ENG 2", 1.2)
+    P.pb(0.170, 0.760, "FAULT", "ON", 0.015, bot_col=BLUE, label="ELEC PUMPS", label_mm=1.1, w=0.022, mm=1.3)
 
     # R7: fire
-    a, b = _sec(P, "FIRE", X0, 0.818, X1, 0.940)
+    a, b = _sec(P, "FIRE", X0, 0.818, X1, 0.930)
     for x, lab in ((0.062, "ENG 1"), (0.170, "APU"), (0.278, "ENG 2")):
-        P.pb(x, 0.898, lab, "FIRE", 0.022, top_col=RED, bot_col=RED, cover=GUARD_RED, mm=1.9, height=0.006, w=0.050)
+        P.label(x, 0.918, lab, 1.9)
+        P.pb(x, 0.892, "FIRE", "PUSH", 0.022, top_col=RED, bot_col=RED, cover=GUARD_RED, mm=1.7, height=0.006, w=0.050)
         if lab == "APU":
-            P.pb(x, 0.846, "SQUIB", "DISCH", 0.015, top_col=LEGEND, bot_col=AMBER, label="AGENT", mm=1.1,
-                 label_mm=1.2, w=0.022)
+            P.pb(x + 0.022, 0.846, "SQUIB", "DISCH", 0.014, top_col=LEGEND, bot_col=AMBER, label="AGENT", mm=1.0,
+                 label_mm=1.1, w=0.020)
         else:
             for dx, n in ((-0.016, "1"), (0.016, "2")):
-                P.pb(x + dx, 0.846, "SQUIB", "DISCH", 0.015, top_col=LEGEND, bot_col=AMBER, label="AGENT " + n,
-                     mm=1.1, label_mm=1.2, w=0.022)
-    P.pb(0.116, 0.870, "", "TEST", 0.013, mm=1.1, w=0.018)
-    # aft: recorder / reading-light strip
-    a, b = _sec(P, "", X0, 0.946, X1, 1.034)
-    P.knob(0.170, 0.992, 0.0095, height=0.022, marks=((-60, "OFF"), (60, "BRT")), mm=1.1)
-    P.row(0.990, a, b, ["CVR\nERASE", "CVR\nTEST", None, None, "GND HYD", "MAINT\nBUS"],
-          lambda x, y, lab: P.pb(x, y, "", "ON", 0.015, bot_col=BLUE, label=lab, label_mm=1.1, w=0.022, mm=1.3))
+                P.pb(x + dx, 0.846, "SQUIB", "DISCH", 0.014, top_col=LEGEND, bot_col=AMBER, label="AGENT " + n,
+                     mm=1.0, label_mm=1.1, w=0.020)
+    P.rpb(0.118, 0.850, 0.0040, "FIRE\nTEST", label_mm=1.0, label_dy=0.010)
+    # blank plate with the stowage hook, then the aft maintenance row
+    P.raised(0.150, 0.940, 0.190, 0.962, 0.016, fill=(16, 16, 18))
+    a, b = _sec(P, "", X0, 0.968, X1, 1.034)
+    P.label(0.050, 1.022, "ENG", 1.4)
+    for x, n in ((0.034, "FADEC GND\nPWR 1"), (0.070, "FADEC GND\nPWR 2")):
+        P.pb(x, 0.992, "", "ON", 0.013, bot_col=BLUE, label=n, label_mm=0.9, cover=GUARD_BLK, w=0.018)
+    P.pb(0.116, 0.992, "", "ON", 0.013, bot_col=BLUE, label="REFUEL ON\nBATTERIES", label_mm=0.9, cover=GUARD_BLK,
+         w=0.018)
+    P.pb(0.158, 0.992, "FAULT", "OFF", 0.013, label="CKPT DOOR\nLKG SYS", label_mm=0.9, cover=GUARD_BLK, w=0.018)
+    P.pb(0.200, 0.992, "", "", 0.013, label="APU\nAUTO EXTING", label_mm=0.9, w=0.018)
+    P.knob(0.250, 0.996, 0.0075, height=0.018, mm=1.0)
+    P.lcd(0.272, 0.986, 0.304, 1.006)
+    P.pb(0.320, 0.996, "", "", 0.012, w=0.014)
     P.screws(0.006)
     return P
 
 
-def _reset_grid(P, x0, y0, x1, y1, title):
-    P.frame(x0, y0, x1, y1 - 0.004, title, mm=1.6)
-    nx, ny = 6, 4
-    for j in range(ny):
-        for i in range(nx):
-            P.rpb(x0 + (x1 - x0) * (i + 0.5) / nx, y0 + 0.008 + (y1 - y0 - 0.022) * (j + 0.5) / ny, 0.0036,
-                  height=0.006)
+def _cb_panels(P, x0, x1, y0, title):
+    """Row of equipment power-supply breakers, then the grid of reset breakers behind it."""
+    P.frame(x0, y0, x1, y0 + 0.040, title, mm=1.3)
+    for i in range(6):
+        P.rpb(x0 + (x1 - x0) * (i + 0.5) / 6, y0 + 0.016, 0.0046, "ABCDEF"[i], height=0.007, label_mm=1.0,
+              label_dy=-0.010)
+    y1 = y0 + 0.046
+    P.frame(x0, y1, x1, 1.034 - 0.004, "RESET", mm=1.3)
+    rows = int((1.030 - y1 - 0.012) / 0.021)
+    for j in range(rows):
+        for i in range(6):
+            P.rpb(x0 + (x1 - x0) * (i + 0.5 + (0.25 if j % 2 else -0.25) * 0.5) / 6, y1 + 0.016 + j * 0.021, 0.0052,
+                  height=0.008)
 
 
 def overhead_left():
@@ -870,15 +885,19 @@ def overhead_left():
     P.pb(0.124, 0.492, "FAULT", "OFF", 0.016, label="EMER GEN", label_mm=1.2, w=0.026)
     P.pb(0.176, 0.492, "", "AUTO", 0.016, cover=GUARD_RED, label="RAT MAN ON", label_mm=1.2, w=0.022)
 
-    a, b = _sec(P, "F/CTL", X0, 0.562, X1, 0.662)
-    P.row(0.602, a, b, ["PRIM 1", "SEC 1", "PRIM 3"], lambda x, y, lab: P.pb(x, y, "FAULT", "OFF", 0.016, label=lab,
-                                                                              label_mm=1.3, w=0.024))
-    a, b = _sec(P, "ADIRS", X0, 0.668, X1, 0.812)
-    P.row(0.768, a, b, ["IR 1", "IR 3", "IR 2"], lambda x, y, lab: P.pb(x, y, "FAULT", "OFF", 0.016, label=lab,
-                                                                         label_mm=1.3, w=0.024))
-    P.row(0.706, a, b, ["ADR 1", "ADR 3", "ADR 2"], lambda x, y, lab: P.pb(x, y, "FAULT", "OFF", 0.016, label=lab,
-                                                                            label_mm=1.3, w=0.024))
-    _reset_grid(P, X0, 0.818, X1, 1.034, "CAPT & F/O POWER SUPPLY  RESET")
+    a, b = _sec(P, "F/CTL", X0, 0.562, X1, 0.640)
+    P.row(0.594, a, b, ["PRIM 1", "SEC 1", None, "PRIM 3", "SEC 3"], lambda x, y, lab: P.pb(
+        x, y, "FAULT", "OFF", 0.014, label=lab, label_mm=1.2, w=0.020, cover=GUARD_BLK, mm=1.2))
+    a, b = _sec(P, "ADIRS", X0, 0.646, X1, 0.776)
+    for i, n in enumerate(("1", "3", "2")):
+        cx = a + (b - a) * (i + 0.5) / 3
+        P.pb(cx, 0.744, "FAULT", "OFF", 0.014, label="IR " + n, label_mm=1.2, w=0.022, mm=1.2)
+        P.knob(cx, 0.690, 0.0095, height=0.024, pointer=0, marks=((-55, "OFF"), (0, "NAV"), (55, "ATT")), mm=1.0)
+    a, b = _sec(P, "CABIN", X0, 0.782, X1, 0.872)
+    for i, n in enumerate(("PAX PERS\nELEC SPLY", "LAVATORY &\nGALLEY", "WIRELESS\nCOM", "CAB LIGHTS")):
+        P.pb(a + (b - a) * (0.32 + 0.36 * (i % 2)), 0.846 - 0.040 * (i // 2), "", "OFF", 0.013, label=n,
+             label_mm=0.9, w=0.020, mm=1.1)
+    _cb_panels(P, X0, X1, 0.878, "CAPT EQPT POWER SUPPLY")
     P.screws(0.006)
     return P
 
@@ -920,15 +939,25 @@ def overhead_right():
         P.knob(cx, 0.440, 0.0115, height=0.028, marks=((-110, "OFF"), (-60, "5"), (0, "15"), (60, "25")), mm=1.1)
         P.pb(cx, 0.390, "FAULT", "OFF", 0.016, label="HEATER", label_mm=1.2, w=0.026)
 
-    a, b = _sec(P, "F/CTL", X0, 0.562, X1, 0.662)
-    P.row(0.602, a, b, ["PRIM 2", "SEC 2", "SEC 3"], lambda x, y, lab: P.pb(x, y, "FAULT", "OFF", 0.016, label=lab,
-                                                                             label_mm=1.3, w=0.024))
-    a, b = _sec(P, "CKPT / READING LT", X0, 0.668, X1, 0.812)
-    P.row(0.752, a, b, ["CAPT", "3RD OCCPNT", "F/O"], lambda x, y, lab: P.knob(
-        x, y, 0.0090, lab, height=0.022, marks=((-60, "OFF"), (60, "BRT")), mm=1.1, label_mm=1.2))
-    P.row(0.700, a, b, ["SVCE INT\nOVRD", "AVNCS\nCOMPT LT", "CKPT DOOR\nVIDEO"], lambda x, y, lab: P.pb(
-        x, y, "", "ON", 0.014, bot_col=BLUE, label=lab, label_mm=1.1, w=0.022, mm=1.2))
-    _reset_grid(P, X0, 0.818, X1, 1.034, "F/O POWER SUPPLY  RESET")
+    a, b = _sec(P, "F/CTL", X0, 0.562, 0.104, 0.640)
+    P.row(0.594, a, b, ["PRIM 2", "SEC 2"], lambda x, y, lab: P.pb(
+        x, y, "FAULT", "OFF", 0.014, label=lab, label_mm=1.2, w=0.020, cover=GUARD_BLK, mm=1.2))
+    a, b = _sec(P, "GND HYD", 0.110, 0.562, X1, 0.640)
+    P.row(0.594, a, b, ["GREEN", "YELLOW"], lambda x, y, lab: P.pb(
+        x, y, "", "ON", 0.014, bot_col=BLUE, label=lab, label_mm=1.2, w=0.022, cover=GUARD_BLK, mm=1.2))
+    a, b = _sec(P, "LTG", X0, 0.646, X1, 0.712)
+    P.row(0.672, a, b, ["AVNCS\nCOMPT", "WHEEL\nWELL", "SVCE INT\nOVRD"], lambda x, y, lab: P.pb(
+        x, y, "", "ON", 0.013, bot_col=BLUE, label=lab, label_mm=1.0, w=0.022, mm=1.1))
+    a, b = _sec(P, "SURV", X0, 0.718, X1, 0.790)
+    P.row(0.746, a, b, ["TERR SYS", "GPWS\nG/S MODE"], lambda x, y, lab: P.pb(
+        x, y, "FAULT", "OFF", 0.014, label=lab, label_mm=1.1, w=0.024, mm=1.2))
+    a, b = _sec(P, "CVR", X0, 0.796, X1, 0.872)
+    P.rpb(0.040, 0.830, 0.0040, "TEST", label_mm=1.1)
+    P.d.rectangle([P.p(0.094, 0.848), P.p(0.126, 0.814)], fill=(176, 180, 186), outline=(80, 84, 90))
+    P.geo.append(("box", 0.110, 0.831, 0.032, 0.034, 0.0, 0.004))
+    P.rpb(0.110, 0.831, 0.0085, height=0.010, col=(40, 40, 44))
+    P.rpb(0.180, 0.830, 0.0040, "ERASE", label_mm=1.1)
+    _cb_panels(P, X0, X1, 0.878, "F/O EQPT POWER SUPPLY")
     P.screws(0.006)
     return P
 
