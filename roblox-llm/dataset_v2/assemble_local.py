@@ -59,7 +59,9 @@ def main() -> int:
         for r in records:
             seen_n["n"] += 1
             if seen_n["n"] % 10000 == 0:
-                print(f"seen {seen_n['n']:>8} records  {counts}  {time.time() - t0:7.0f}s", flush=True)
+                import resource
+                rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024
+                print(f"seen {seen_n['n']:>8} records  {counts}  {time.time() - t0:7.0f}s  peak_rss={rss_mb}MB", flush=True)
             yield r
 
     try:
