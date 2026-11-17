@@ -766,9 +766,9 @@ def build_pan(col, root, inboard, observer=False):
         mb.rbox((sx * 0.236 - 0.012, -0.110, -0.075), (sx * 0.236 + 0.012, 0.360, 0.012), (0.010, 0.030, 0.010),
                 n=(1, 8, 2), m=3, mat="seat_shell")
     # crotch-strap slot
-    sl = pan_top_point(0.0, 0.270, 0.001)
-    mb.prism(ellipse(0.072, 0.026, 28), -0.002, 0.003, Tr(*sl), "seat_black")
-    mb.prism(ellipse(0.054, 0.012, 24), 0.003, 0.0035, Tr(*sl), "seat_black_matte")
+    sl = pan_top_point(0.0, 0.270, 0.0)
+    mb.prism(ellipse(0.070, 0.024, 28), -0.004, 0.0008, Tr(*sl), "seat_piping")       # stitched slot edge
+    mb.prism(ellipse(0.058, 0.012, 24), -0.004, 0.0012, Tr(*sl), "seat_black_matte")  # opening
     build_lap_harness(mb)
     # seat-adjustment handle in the inboard front corner, recline lever, lumbar knobs
     x = inboard * 0.249
@@ -806,9 +806,9 @@ def build_lap_harness(mb):
         t = (P[-6] - P[-9]).normalized()
         Ma = frame_from(a, t.cross(up), t)
         mb.box((-0.028, -0.012, -0.003), (0.028, 0.012, 0.004), 0.002, "seat_metal", Ma)
-    crotch = [pan_top_point(0.0, 0.272, -0.002), pan_top_point(0.0, 0.245, 0.003), pan_top_point(0.0, 0.200, 0.003),
-              pan_top_point(0.0, 0.165, 0.004)]
-    mb.ribbon(crotch, [Vector((0, -0.5, 1))] + [up] * 3, 0.050, 0.0026, "seat_webbing")
+    crotch = [pan_top_point(0.0, 0.266, -0.003), pan_top_point(0.0, 0.250, 0.0005), pan_top_point(0.0, 0.205, 0.001),
+              pan_top_point(0.0, 0.165, 0.002)]
+    mb.ribbon(crotch, [up] * 4, 0.044, 0.0022, "seat_webbing")
     # rotary buckle: body, knurled turning ring, centre plate and tongue slots
     Mb = Tr(*buckle)
     mb.cyl(0.040, 0.010, Mb, "seat_black", 40)
