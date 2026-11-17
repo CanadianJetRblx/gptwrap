@@ -320,7 +320,7 @@ def warn_block(side="L"):
 
 def wing_inner(side="L"):
     """Side-stick priority light and CHRONO push-button on the glareshield wing."""
-    w = 0.090
+    w = 0.200
     P = Panel("GLARESHIELD_WING_INNER_" + side, w, 0.048)
     mx = (lambda x: x) if side == "R" else (lambda x: w - x)
     P.pb(mx(0.020), 0.020, "◄" if side == "R" else "►", "CAPT" if side == "L" else "F/O", 0.018, top_col=RED,
@@ -328,6 +328,11 @@ def wing_inner(side="L"):
     P.label(mx(0.020), 0.040, "SIDESTICK\nPRIORITY", 1.2)
     P.rpb(mx(0.052), 0.020, 0.0075, height=0.004)
     P.label(mx(0.052), 0.040, "CHRONO", 1.3)
+    # audio / microphone sub-panel further outboard: selector, volume knob, push-button
+    P.line(mx(0.078), 0.004, mx(0.078), 0.044, PLATE_DK, 0.8)
+    P.rpb(mx(0.104), 0.021, 0.0050, height=0.004)
+    P.knob(mx(0.138), 0.021, 0.0070, height=0.012)
+    P.key(mx(0.172), 0.021, 0.016, 0.010, "", height=0.003)
     return P
 
 
@@ -981,6 +986,14 @@ def ois_side(side="L"):
     return P
 
 
+def side_wall_panel():
+    """Small two-knob panel on the console face beside the loudspeaker grille."""
+    P = Panel("CONSOLE_AUDIO_PANEL", 0.060, 0.070)
+    P.knob(0.030, 0.050, 0.0070, height=0.012)
+    P.knob(0.030, 0.022, 0.0070, height=0.012)
+    return P
+
+
 def grille(name, w, h, pitch=0.0055, r=0.0013):
     """Perforated loudspeaker grille."""
     P = Panel(name, w, h, ppm=3000)
@@ -1003,7 +1016,7 @@ ALL = dict(afs=afs_cp, efis_l=lambda: efis_cp("L"), efis_r=lambda: efis_cp("R"),
            kccu_l=lambda: kccu("L"), kccu_r=lambda: kccu("R"), rmp1=lambda: rmp(1), rmp2=lambda: rmp(2),
            rmp3=lambda: rmp(3), thrust=thrust_plate, eng_ecp=eng_ecp, spdbrk=spd_brk, surv=surv, flaps=flaps,
            park=park, trim=trim, lg=lg_gravity, ckptlt=ckpt_lt, printer=printer,
-           blank_r1=lambda: blank("BLANK_R1", 0.146, 0.065), blank_r2=lambda: blank("BLANK_R2", 0.146, 0.150),
+           blank_r1=lambda: blank("BLANK_R1", 0.146, 0.065), sidewall=side_wall_panel, blank_r2=lambda: blank("BLANK_R2", 0.146, 0.150),
            ovhd_c=overhead_centre, ovhd_l=overhead_left, ovhd_r=overhead_right,
            oisside_l=lambda: ois_side("L"), oisside_r=lambda: ois_side("R"),
            grille=lambda: grille("SPEAKER_GRILLE", 0.16, 0.09))

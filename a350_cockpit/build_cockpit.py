@@ -721,7 +721,7 @@ def build_glareshield(P):
     upw = Vector((0, lean, GS_WING_H)).normalized()
     nw = x.cross(upw)
     bw = Vector((0.0, GS_Y - lean, GS_Z0)) + nw * 0.002
-    for key, x0 in (("wingin_l", -hw - sh - 0.090), ("wingin_r", hw + sh), ("wingout_l", -0.795), ("wingout_r", 0.625)):
+    for key, x0 in (("wingin_l", -hw - sh - 0.200), ("wingin_r", hw + sh), ("wingout_l", -0.795), ("wingout_r", 0.625)):
         build_panel(P[key], key, frame(bw + x * x0, x, upw), c, thickness=0.006)
 
 
@@ -925,6 +925,13 @@ def build_side(sgn, P):
     mb.finish(c)
     Mg = frame((sgn * 0.93 - 0.08, 0.375, top - 0.045), (1, 0, 0), (0, 0.55, 0.83))
     build_panel(P["grille"], "grille", Mg @ Tr(0, 0, 0.004), c, thickness=0.02)
+    build_panel(P["sidewall"], "sidewall", Mg @ Tr(0.175 if sgn > 0 else -0.075, 0.01, 0.004), c, thickness=0.02)
+    w = MB("Side_Wall_Fittings_" + tag)                     # air outlet and grab handle outboard of the OIS display
+    wx = sill_x(0.52) - 0.07
+    w.cyl(0.028, 0.03, Tr(sgn * wx, 0.52, 0.86) @ Ry(-sgn * 75), "black_plastic", 24)
+    w.cyl(0.020, 0.032, Tr(sgn * wx, 0.52, 0.86) @ Ry(-sgn * 75), "black_gloss", 24)
+    w.box(0.012, 0.06, 0.035, Tr(sgn * (sill_x(0.42) - 0.065), 0.42, 0.93), "liner_low", 0.004)
+    w.finish(c)
 
     # side-stick on its stepped rubber boot
     s = MB("Sidestick_" + tag)
@@ -1093,9 +1100,9 @@ def setup_render(preview=False):
     scene.render.engine = "CYCLES"
     cy = scene.cycles
     cy.device = "CPU"
-    cy.samples = 40 if preview else 110
+    cy.samples = 40 if preview else 96
     cy.use_adaptive_sampling = True
-    cy.adaptive_threshold = 0.05 if preview else 0.02
+    cy.adaptive_threshold = 0.05 if preview else 0.03
     cy.use_denoising = True
     cy.max_bounces = 6 if preview else 8
     cy.sample_clamp_indirect = 8.0
