@@ -147,9 +147,9 @@ def main(stage: str = "p1", shards: int = 0, debug_share: float = 0.25):
         print(f"phase 1 over {len(listing)} shards", file=sys.stderr)
         stats = list(phase1.map(listing))
         print(json.dumps(stats, indent=1))
-    elif stage == "p2":
-        print(json.dumps(phase2.remote(7, debug_share), indent=1))
+    elif stage == "p2":   # spawn: a blocking call is cancelled when the launching client disconnects
+        print("spawned phase2:", phase2.spawn(7, debug_share).object_id)
     elif stage == "p3":
-        print(json.dumps(phase3.remote(), indent=1))
+        print("spawned phase3:", phase3.spawn().object_id)
     else:
         raise SystemExit(f"unknown stage {stage!r}")
