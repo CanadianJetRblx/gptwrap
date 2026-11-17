@@ -7,6 +7,14 @@ def test_extract_code_prefers_fenced_block():
     assert E.extract_code("local y = 2").strip() == "local y = 2"
 
 
+def test_extract_code_keeps_backticks_inside_the_file():
+    # a documentation comment inside the file contains a fence; the block must not be cut there
+    src = "--[[\n```lua\nexample()\n```\n]]\nlocal x = 1\n"
+    out = "Fixed:\n```lua\n" + src + "```\nDone."
+    assert E.extract_code(out) == src
+    assert E.extract_code("```luau\n" + src + "```") == src
+
+
 def test_score_counts_fixed_api_clean_and_missing():
     tasks = [
         {"task_id": "a", "fault": "typo_member", "reference_path": "inv.server.luau", "prompt": ""},

@@ -24,13 +24,24 @@ from collections import Counter
 from .build import build_debug_task
 from .verify import ApiIndex, verify
 
-FENCE = re.compile(r"```(?:lua|luau)?\s*\n(.*?)```", re.S)
+FENCE_OPEN = re.compile(r"```(?:lua|luau|Lua|Luau)?[ \t]*\n")
 
 
 def extract_code(output: str) -> str:
-    """The first fenced block if there is one, otherwise the whole reply."""
-    m = FENCE.search(output)
-    return (m.group(1) if m else output).strip() + "\n"
+    """The code in the reply's fenced block, otherwise the whole reply.
+
+    The block runs from its opening fence to the LAST closing fence, not the first: Luau files can
+    contain triple backticks inside comments (documentation blocks do), and cutting at the first one
+    truncates the file and makes a correct answer look broken."""
+    text = output.strip()
+    m = FENCE_OPEN.search(text)
+    if not m:
+        return text + "\n"
+    body = text[m.end():]
+    end = body.rfind("```")
+    if end != -1:
+        body = body[:end]
+    return body.rstrip() + "\n"
 
 
 def build_tasks(holdout: list[dict], api: ApiIndex, seed: int = 11, max_tasks: int = 300) -> list[dict]:
