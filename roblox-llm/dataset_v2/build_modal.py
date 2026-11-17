@@ -75,7 +75,9 @@ def phase1(shard_path: str) -> dict:
     return stats
 
 
-@app.function(image=image, volumes={DATA: vol}, cpu=2, memory=12288, timeout=8 * 3600)
+# 48 GB: all verified records are held in memory at once (the first assembly attempt ended with an empty
+# RemoteError, consistent with the container being killed at the old 12 GB limit).
+@app.function(image=image, volumes={DATA: vol}, cpu=4, memory=49152, timeout=8 * 3600)
 def phase2(seed: int = 7, debug_share: float = 0.25) -> dict:
     import io
     import zstandard as zstd
