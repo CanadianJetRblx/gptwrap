@@ -10,6 +10,7 @@ place and the whole model rebuilt.
 | `build_cockpit.py` | Geometry, materials, lighting, cameras, rendering |
 | `panels.py` | Every control panel: face-plate legends plus the 3D position of each knob, key, push-button, guard and toggle |
 | `displays.py` | Symbology shown on the six large displays and the two standby units |
+| `seat.py` | The flight-crew seats (rigged); also runs on its own to build and render one seat |
 | `renders/` | Reference renders from each camera |
 
 ## Rebuild
@@ -48,9 +49,43 @@ With a normal Blender install: `blender -b -P build_cockpit.py -- --render`.
   cockpit lighting, cockpit door switch, printer, handset.
 - Overhead: three columns (centre plus two canted side columns) with every
   push-button, guard, toggle and knob as separate relief.
-- Two pilot seats, third-occupant seat, side consoles with side-sticks on their
-  stepped boots, tillers, loudspeaker grilles, stowage, rudder pedals, stowed
-  sliding tables.
+- Crew seats (two pilots plus the third occupant), detailed below.
+- Side consoles with side-sticks on their stepped boots, tillers, loudspeaker
+  grilles, stowage, rudder pedals, stowed sliding tables.
+
+## Crew seats
+
+Each seat is built by `seat.py` and matched to photos of in-service A350 seats:
+
+- Moulded, light blue-grey back shell whose side walls get shallower toward the
+  top. It carries the oval "A350" badge, a round badge (generic, not a
+  reproduction of the Airbus logo), the red "2 LIFE VESTS" placard, parting
+  lines, and the life-vest stowage lid with its finger notch.
+- Sculpted upholstery in the factory star-pattern fabric. The backrest has a
+  lumbar bulge, thoracic side bolsters and a stitched centre panel. The seat pan
+  is dished, with thigh bolsters, a rounded front, piping and the crotch-strap
+  slot.
+- Separate headrest standing proud of the shell top, with piping and support posts.
+- Black padded armrests on cast hinge brackets, stowed upright as in most photos.
+- Five-point harness: shoulder straps from the backrest, lap belts with
+  adjusters, crotch strap and a rotary buckle, all lying stowed on the seat.
+- Inboard-side controls: the two knurled lumbar knobs with their legend plate,
+  the recline lever and the seat-adjustment handle.
+- Base: slotted floor tracks, carriage, lift column with shroud, release bar,
+  cable boot and the CAUTION tag.
+
+Every seat is a small rig, so it can be posed by rotating one object about X:
+
+| Object | Pivot | Default |
+| --- | --- | --- |
+| `Seat_CAPT` / `Seat_FO` / `Seat_Third_Occupant` | floor, seat centreline | move along Y to slide the seat |
+| `…_Pan` | rear of the seat pan | 4° rake |
+| `…_Back` (child of the pan) | recline hinge | 10° (about 14° from vertical in total) |
+| `…_Headrest` (child of the back) | on the back | move along Z to raise it |
+| `…_Armrest_L` / `…_Armrest_R` (children of the back) | armrest hinge | 90° = stowed upright, 0° = down for flying |
+
+To preview a single seat: `python3 seat.py --render` (add `--final` for
+1400 px renders).
 
 ## Accuracy
 
@@ -68,7 +103,10 @@ to be the loosest part. Known limits:
 - The aft third of the overhead panel (flight controls, ADIRS, reset panels,
   fuel and hydraulic rows) was only visible at low resolution, so its control
   order follows Airbus family convention rather than a clear photograph.
-- Seats, side consoles and the cockpit shell are simplified forms.
+- Side consoles and the cockpit shell are simplified forms.
+- Seat dimensions are measured from photographs (no published drawing). Many
+  airlines fit sheepskin covers over the factory star fabric. The model uses
+  the factory fabric.
 - The optional head-up displays are not fitted.
 - Small legends are legible in close-up renders but are approximations of the
   real engraving.

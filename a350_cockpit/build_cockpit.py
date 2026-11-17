@@ -22,6 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import displays  # noqa: E402
 import panels  # noqa: E402
+import seat  # noqa: E402
 
 TEX = os.path.join(HERE, "textures")
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
@@ -215,10 +216,6 @@ def make_materials():
     principled("knob_white", srgb(*panels.KNOB_W), 0.5)
     principled("red", srgb(196, 34, 30), 0.4)
     principled("white", srgb(225, 225, 222), 0.45)
-    principled("seat_fabric", srgb(58, 66, 86), 0.95)
-    principled("sheepskin", srgb(132, 134, 138), 1.0)
-    principled("seat_shell", srgb(156, 178, 198), 0.55)
-    principled("belt", srgb(70, 76, 84), 0.8)
     principled("carpet", srgb(34, 36, 42), 1.0)
     principled("door", srgb(150, 166, 186), 0.6)
     principled("bezel", srgb(96, 110, 130), 0.5)
@@ -853,46 +850,16 @@ def build_overhead(P):
 
 
 # --------------------------------------------------------------------------
-# Seats
+# Seats (see seat.py: rigged, with pivots for rake, recline, headrest and armrests)
 # --------------------------------------------------------------------------
-def build_seat(name, x, y, outboard=1, pilot=True):
-    """Crew seat.  outboard = +1 if the side-stick armrest is on the +X side."""
-    c = "Seats"
-    M = Tr(x, y, 0)
-    hard = MB(name + "_Frame")
-    soft = MB(name + "_Cushions")
-    for sx in (-0.19, 0.19):
-        hard.box(0.045, 1.10 if pilot else 0.5, 0.022, M @ Tr(sx, -0.10, 0.011), "metal_dark", 0.004)
-    hard.box(0.42, 0.46, 0.09, M @ Tr(0, -0.02, 0.070), "black_plastic", 0.02)
-    hard.box(0.30, 0.32, 0.20, M @ Tr(0, -0.04, 0.215), "black_plastic", 0.02)
-    hard.box(0.50, 0.50, 0.055, M @ Tr(0, -0.01, 0.345), "seat_shell", 0.02)
-    soft.box(0.47, 0.47, 0.095, M @ Tr(0, 0.0, 0.415) @ Rx(4), "sheepskin" if pilot else "seat_fabric", 0.035, 4)
-    soft.box(0.47, 0.10, 0.075, M @ Tr(0, 0.215, 0.405) @ Rx(-10), "seat_fabric", 0.03, 4)
-    B = M @ Tr(0, -0.235, 0.40) @ Rx(11)
-    # moulded back shell with the oval logo plate and red life-vest tag
-    hard.box(0.47, 0.070, 0.74, B @ Tr(0, -0.045, 0.37), "seat_shell", 0.035, 4)
-    hard.box(0.30, 0.060, 0.24, B @ Tr(0, -0.040, 0.82), "seat_shell", 0.030, 4)
-    hard.box(0.36, 0.02, 0.50, B @ Tr(0, -0.088, 0.36), "seat_shell", 0.008, 2)
-    hard.cyl(0.040, 0.006, B @ Tr(0, -0.078, 0.64) @ Rx(90), "white", 28)
-    hard.box(0.10, 0.004, 0.022, B @ Tr(0, -0.100, 0.52), "red", 0.001)
-    soft.box(0.45, 0.085, 0.62, B @ Tr(0, 0.030, 0.36), "seat_fabric", 0.035, 4)
-    soft.box(0.10, 0.07, 0.56, B @ Tr(-0.20, 0.060, 0.36), "seat_fabric", 0.03, 4)
-    soft.box(0.10, 0.07, 0.56, B @ Tr(0.20, 0.060, 0.36), "seat_fabric", 0.03, 4)
-    soft.box(0.27, 0.095, 0.19, B @ Tr(0, 0.022, 0.845) @ Rx(-6), "sheepskin" if pilot else "seat_fabric", 0.04, 4)
-    for sx in (-0.09, 0.09):
-        soft.box(0.045, 0.006, 0.62, B @ Tr(sx, 0.078, 0.39), "belt", 0.002)
-        soft.box(0.045, 0.30, 0.006, M @ Tr(sx * 2.3, 0.02, 0.468) @ Rz(-sx * 260), "belt", 0.002)
-    hard.cyl(0.028, 0.016, M @ Tr(0, 0.10, 0.462), "metal_dark", 20)
-    if pilot:
-        hard.box(0.085, 0.36, 0.045, M @ Tr(outboard * 0.285, -0.03, 0.665), "black_plastic", 0.015, 3)
-        hard.box(0.03, 0.05, 0.22, M @ Tr(outboard * 0.285, -0.17, 0.55), "seat_shell", 0.008)
-        hard.box(0.055, 0.32, 0.04, M @ Tr(-outboard * 0.275, -0.05, 0.655), "black_plastic", 0.012, 3)
-        hard.box(0.03, 0.05, 0.22, M @ Tr(-outboard * 0.275, -0.19, 0.545), "seat_shell", 0.008)
-        for i, dy in enumerate((0.12, 0.03)):                                   # lumbar adjustment knobs
-            hard.cyl(0.022, 0.018, M @ Tr(-outboard * 0.255, -0.20 + dy, 0.30 + i * 0.0) @ Ry(-outboard * 90),
-                     "black_plastic", 20)
-    hard.finish(c)
-    soft.finish(c, sharp_deg=60)
+SEAT_TRACK_X = 0.54     # seat centreline; leaves ~1 cm to the pedestal and the side console
+
+
+def build_seats():
+    c = coll("Seats")
+    seat.build_crew_seat("Seat_CAPT", (-SEAT_TRACK_X, 0.0, 0.0), +1, c)
+    seat.build_crew_seat("Seat_FO", (SEAT_TRACK_X, 0.0, 0.0), -1, c)
+    seat.build_crew_seat("Seat_Third_Occupant", (0.0, -1.30, 0.0), +1, c, observer=True)
 
 
 # --------------------------------------------------------------------------
@@ -1060,6 +1027,7 @@ def build_cameras():
         "glareshield": ((0.0, -0.02, 1.12), (0.0, 0.60, 0.98), 30.0),
         "fo_side": ((0.05, -0.55, 1.50), (0.85, 0.42, 0.72), 18.0),
         "rear": ((0.0, -1.62, 1.50), (0.0, 0.50, 1.05), 13.0),
+        "captain_seat": ((0.10, 0.42, 1.10), (-0.54, -0.12, 0.74), 20.0),
     }
     for name, (loc, tgt, lens) in specs.items():
         cd = bpy.data.cameras.new("Cam_" + name)
@@ -1129,9 +1097,7 @@ def main():
     build_glareshield(P)
     build_pedestal(P)
     build_overhead(P)
-    build_seat("Seat_CAPT", -SEAT_X, 0.0, outboard=-1)
-    build_seat("Seat_FO", SEAT_X, 0.0, outboard=1)
-    build_seat("Seat_Third_Occupant", 0.0, -1.32, pilot=False)
+    build_seats()
     build_side(-1, P)
     build_side(1, P)
     build_world()
