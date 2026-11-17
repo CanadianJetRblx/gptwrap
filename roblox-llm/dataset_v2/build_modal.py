@@ -77,36 +77,46 @@ def phase1(shard_path: str) -> dict:
 
 # 48 GB: all verified records are held in memory at once (the first assembly attempt ended with an empty
 # RemoteError, consistent with the container being killed at the old 12 GB limit).
-@app.function(image=image, volumes={DATA: vol}, cpu=4, memory=49152, timeout=8 * 3600)
+@app.function(image=image, volumes={DATA: vol}, cpu=2, memory=8192, timeout=8 * 3600)
 def phase2(seed: int = 7, debug_share: float = 0.25) -> dict:
+    """Streaming assembly: records are read one at a time and each output row is written immediately,
+    so memory stays flat. (The list-based version ended with an empty RemoteError, which is what a
+    Python MemoryError looks like, at both 12 GB and 48 GB.)"""
     import io
     import zstandard as zstd
     from dataset_v2 import build
 
     vol.reload()
     api = _open_api()
-    recs = []
-    for path in sorted(glob.glob(f"{DATA}/dataset_v2/p1/*.jsonl.zst")):
-        with open(path, "rb") as fh:
-            reader = io.TextIOWrapper(zstd.ZstdDecompressor().stream_reader(fh), encoding="utf-8")
-            recs += [json.loads(l) for l in reader]
-    cpt, sft, hold, man = build.build(recs, api, seed=seed, debug_share=debug_share)
+
+    def stream_records():
+        for path in sorted(glob.glob(f"{DATA}/dataset_v2/p1/*.jsonl.zst")):
+            with open(path, "rb") as fh:
+                reader = io.TextIOWrapper(zstd.ZstdDecompressor().stream_reader(fh), encoding="utf-8")
+                for line in reader:
+                    yield json.loads(line)
 
     out = f"{DATA}/dataset_v2/out"
     os.makedirs(out, exist_ok=True)
+    files = {n: open(f"{out}/{n}.jsonl.zst", "wb") for n in ("cpt_train", "sft_train", "holdout_eval")}
+    writers = {n: zstd.ZstdCompressor(level=9).stream_writer(f) for n, f in files.items()}
+    counts = {n: 0 for n in writers}
 
-    def dump(name, rows):
-        with open(f"{out}/{name}.jsonl.zst", "wb") as fh:
-            cw = zstd.ZstdCompressor(level=9).stream_writer(fh)
-            for row in rows:
-                cw.write((json.dumps(row, ensure_ascii=False) + "\n").encode("utf-8"))
-            cw.close()
+    def emitter(name):
+        def emit(row):
+            writers[name].write((json.dumps(row, ensure_ascii=False) + "\n").encode("utf-8"))
+            counts[name] += 1
+        return emit
 
-    dump("cpt_train", cpt)        # continued-pretraining files (verified, permissive licence)
-    dump("sft_train", sft)        # instruction pairs: debug and header-comment tasks
-    dump("holdout_eval", hold)    # held-out repositories, never trained on
-    manifest = {"build": man, "seed": seed, "debug_share": debug_share,
-                "counts": {"cpt_train": len(cpt), "sft_train": len(sft), "holdout_eval": len(hold)}}
+    try:
+        man = build.build_iter(stream_records(), api, emitter("cpt_train"), emitter("sft_train"),
+                               emitter("holdout_eval"), seed=seed, debug_share=debug_share)
+    finally:
+        for w in writers.values():
+            w.close()
+        for f in files.values():
+            f.close()
+    manifest = {"build": man, "seed": seed, "debug_share": debug_share, "counts": counts}
     with open(f"{out}/manifest.json", "w") as fh:
         json.dump(manifest, fh, indent=1)
     vol.commit()

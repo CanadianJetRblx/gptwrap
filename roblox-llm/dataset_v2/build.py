@@ -169,13 +169,15 @@ def build_comment_task(file_text: str, path: str, header: str) -> dict:
     }
 
 
-def build(records, api: ApiIndex, seed: int = 7, debug_share: float = 0.25, max_tasks: int | None = None):
-    """records: iterable of clean GitHub code records. Returns (train_cpt, train_sft, holdout, manifest)."""
+def build_iter(records, api: ApiIndex, emit_cpt, emit_sft, emit_holdout, seed: int = 7,
+               debug_share: float = 0.25, max_tasks: int | None = None) -> dict:
+    """Streaming build: `records` can be a generator, and each output row goes to an emitter as soon as
+    it is produced, so memory does not grow with the dataset. Returns the manifest counts."""
     rng = random.Random(seed)
     man = Counter()
     per_repo = Counter()
     seen = set()
-    cpt, sft, holdout = [], [], []
+    n_sft = 0
     for r in records:
         man["seen"] += 1
         meta = r.get("meta") or {}
@@ -199,24 +201,34 @@ def build(records, api: ApiIndex, seed: int = 7, debug_share: float = 0.25, max_
         base = {"id": r["id"], "repo": repo, "path": path, "licence": lic, "stars": meta.get("stars"),
                 "checks": v.checks, "warnings": v.warnings, "quality": q, "features": feats}
         if bucket == "holdout":
-            holdout.append({**base, "text": text})
+            emit_holdout({**base, "text": text})
             man["holdout"] += 1
             continue
         if per_repo[repo] >= PER_REPO_CAP:
             man["drop:repo_cap"] += 1
             continue
         per_repo[repo] += 1
-        cpt.append({**base, "text": text})
+        emit_cpt({**base, "text": text})
         man["train_files"] += 1
         hdr = comment_header(text)
         if hdr:
-            sft.append({**base, **build_comment_task(text, path, hdr)})
+            emit_sft({**base, **build_comment_task(text, path, hdr)})
+            n_sft += 1
             man["task:header_comment"] += 1
         if rng.random() < debug_share:
             t = build_debug_task(text, path, api, rng)
             if t:
-                sft.append({**base, **t})
+                emit_sft({**base, **t})
+                n_sft += 1
                 man["task:debug"] += 1
-        if max_tasks and len(sft) >= max_tasks:
+        if max_tasks and n_sft >= max_tasks:
             break
-    return cpt, sft, holdout, dict(man)
+    return dict(man)
+
+
+def build(records, api: ApiIndex, seed: int = 7, debug_share: float = 0.25, max_tasks: int | None = None):
+    """List-returning wrapper around build_iter (used by tests and small runs)."""
+    cpt, sft, hold = [], [], []
+    man = build_iter(records, api, cpt.append, sft.append, hold.append, seed=seed,
+                     debug_share=debug_share, max_tasks=max_tasks)
+    return cpt, sft, hold, man
